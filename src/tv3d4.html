@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to WebGL</title>
+
+	<link rel="stylesheet" href="../css/webglbook.css" /> 
+	<script src="../libs/Three.js"></script>
+	<script src="../libs/RequestAnimationFrame.js"></script>
+	<script>
+	
+	var renderer = null,
+		scene = null, 
+		cameraLeft = null,
+		cameraRight = null,
+		objects = {},
+		zincrement = 0.01,
+		separation = -0.04300000000000005,
+		incrementation = 0.001,
+		animating = false;
+	
+	function onLoad()
+	{
+		// Grab our containers div
+        var container = document.getElementById("container");
+
+        // Create the Three.js renderers, add them to our divs
+	    renderer = new THREE.WebGLRenderer( { antialias: true } );
+	    renderer.setClearColor(new THREE.Color().setRGB(0,0,0));
+	    renderer.setSize(container.offsetWidth, container.offsetHeight);
+	    container.appendChild( renderer.domElement );
+
+	    // Create a new Three.js scene
+	    scene = new THREE.Scene();
+
+	    // Put in two cameras
+        cameraLeft = new THREE.PerspectiveCamera( 45, (container.offsetWidth / 2) / container.offsetHeight, 1, 4000 );
+        cameraLeft.position.set( 0, 0, 3 );
+        scene.add(cameraLeft);
+
+        cameraRight = new THREE.PerspectiveCamera( 45, (container.offsetWidth / 2) / container.offsetHeight, 1, 4000 );
+        cameraRight.position.set( 0, 0, 3 );
+        scene.add(cameraRight);
+        
+        iluminateSomething();
+
+        drawSomething();
+
+        addKeyHandler();
+        // Run our render loop
+        run();
+	}
+
+	function run()
+	{
+		var width = Math.round(container.offsetWidth/2), 
+			height = container.offsetHeight;
+		// Render the scene
+		renderer.setViewport( 0, 0, width, height);
+		renderer.setScissor( 0, 0, width, height);
+		renderer.enableScissorTest ( true );
+
+		cameraLeft.aspect = width * 2 / height;
+		cameraLeft.updateProjectionMatrix();
+		cameraLeft.position.set( separation, 0, 3 );
+		
+		renderer.render( scene, cameraLeft );
+
+		renderer.setViewport( width, 0, width, height);
+		renderer.setScissor( width, 0, width, height);
+		renderer.enableScissorTest ( true );
+
+		cameraRight.aspect = width * 2 / height;
+		cameraRight.updateProjectionMatrix();
+		cameraRight.position.set( -separation, 0, 3 );
+		
+		renderer.render( scene, cameraRight );
+		animateSomething();
+			
+		// Ask for another frame
+    	requestAnimationFrame(run);	
+	}
+
+	function drawSomething(){
+		// Create a group to hold our sun mesh and light
+		var sunGroup = new THREE.Object3D();
+
+		var SUNMAP = "../images/lavatile.jpg";
+		var NOISEMAP = "../images/cloud.png";
+		var uniforms = {
+
+				time: { type: "f", value: 1.0 },
+				texture1: { type: "t", value: 0, texture: THREE.ImageUtils.loadTexture( NOISEMAP  ) },
+				texture2: { type: "t", value: 1, texture: THREE.ImageUtils.loadTexture( SUNMAP ) }
+
+			};
+
+		uniforms.texture1.texture.wrapS = uniforms.texture1.texture.wrapT = THREE.Repeat;
+		uniforms.texture2.texture.wrapS = uniforms.texture2.texture.wrapT = THREE.Repeat;
+
+		var material = new THREE.ShaderMaterial( {
+
+			uniforms: uniforms,
+			vertexShader: document.getElementById( 'vertexShader' ).textContent,
+			fragmentShader: document.getElementById( 'fragmentShader' ).textContent
+
+		} );
+		
+		// Create our sun mesh
+	    var geometry = new THREE.SphereGeometry(0.4, 64, 64);
+		sunMesh = new THREE.Mesh( geometry, material );
+		
+		// Tuck away the uniforms so that we can animate them over time
+		objects.uniforms = uniforms;
+
+		// Set up a clock to drive the animation
+		objects.clock = new THREE.Clock();
+		
+	    // Create a point light to show off our solar system
+		var light = new THREE.PointLight( 0xffffff, 1.2, 100000 );
+	    
+		sunGroup.add(sunMesh);
+		sunGroup.add(light);
+
+		scene.add(sunGroup);
+		objects.sunGroup = sunGroup;
+
+
+
+
+		var surfaceMap = THREE.ImageUtils.loadTexture( "../images/earth_surface_2048.jpg" );
+		var normalMap = THREE.ImageUtils.loadTexture( "../images/earth_normal_2048.jpg" );
+		var specularMap = THREE.ImageUtils.loadTexture( "../images/earth_specular_2048.jpg" );
+
+		var shader = THREE.ShaderUtils.lib[ "normal" ],
+		uniforms = THREE.UniformsUtils.clone( shader.uniforms );
+
+		uniforms[ "tNormal" ].texture = normalMap;
+		uniforms[ "tDiffuse" ].texture = surfaceMap;
+		uniforms[ "tSpecular" ].texture = specularMap;
+
+		uniforms[ "enableDiffuse" ].value = true;
+		uniforms[ "enableSpecular" ].value = true;
+
+		var shaderMaterial = new THREE.ShaderMaterial({
+			fragmentShader: shader.fragmentShader,
+			vertexShader: shader.vertexShader,
+			uniforms: uniforms,
+			lights: true
+		});
+
+	    var globeGeometry = new THREE.SphereGeometry(0.2, 32, 32);
+
+	    // We'll need these tangents for our shader
+	    globeGeometry.computeTangents();
+	    var globeMesh = new THREE.Mesh( globeGeometry, shaderMaterial ); 
+	    
+	    // Let's work in the tilt
+	    globeMesh.rotation.x = 0.41;
+
+	    globeMesh.position.x = 0;
+
+	    scene.add(globeMesh);
+	    objects.globeMesh = globeMesh;
+
+
+	    // Create our clouds
+		var cloudsMap = THREE.ImageUtils.loadTexture( "../images/earth_clouds_1024.png" );
+		var cloudsMaterial = new THREE.MeshLambertMaterial( { color: 0xffffff, map: cloudsMap, transparent:true } );
+
+	    var cloudsGeometry = new THREE.SphereGeometry(0.205, 32, 32);
+		cloudsMesh = new THREE.Mesh( cloudsGeometry, cloudsMaterial );
+		cloudsMesh.rotation.x = 0.41;
+
+		cloudsMesh.position.x = 0;
+		scene.add(cloudsMesh);
+		objects.cloudsMesh = cloudsMesh;
+
+	}
+
+	function animateSomething(){
+			
+		var delta = objects.clock.getDelta();
+	
+	 	objects.uniforms.time.value += delta;
+		
+		objects.sunGroup.rotation.y -= 0.001;
+
+
+		// "I feel the Earth move..."
+		objects.globeMesh.rotation.y += 0.001;
+
+		// "Clouds, too..."
+		objects.cloudsMesh.rotation.y += 0.002;
+
+		objects.globeMesh.position.z += zincrement;
+		objects.cloudsMesh.position.z += zincrement;
+		objects.sunGroup.position.z -= zincrement;
+
+		if((objects.globeMesh.position.z > 1)||(objects.globeMesh.position.z < -1)){
+			zincrement *= -1;
+		}
+	}
+
+	function iluminateSomething(){
+		var light = new THREE.PointLight( 0xffffff, 2, 100);
+		light.position.set(-10, 0, 20);
+		scene.add(light);
+	}
+
+	function addKeyHandler()
+	{
+		
+		
+		document.addEventListener( 'keyup', onKeyUp, false);
+	}
+	
+	function onKeyUp	(event)
+	{
+	    event.preventDefault();
+
+	    switch(event.keyCode){
+	    	case 38: //Up
+	    		separation += incrementation;
+	    		break;
+	    	case 40: //Down
+	    		separation -= incrementation;
+	    		break;
+	    	case 39: //Right
+	    		incrementation *= 1.1;
+	    		break;
+	    	case 37:// left
+	    		incrementation *= 0.9;
+	    		break;
+	    }
+	}	
+	
+	</script>
+	<script id="fragmentShader" type="x-shader/x-fragment">
+
+			uniform float time;
+
+			uniform sampler2D texture1;
+			uniform sampler2D texture2;
+
+			varying vec2 texCoord;
+
+			void main( void ) {
+
+				vec4 noise = texture2D( texture1, texCoord );
+				
+				vec2 T1 = texCoord + vec2( 1.5, -1.5 ) * time  * 0.01;
+				vec2 T2 = texCoord + vec2( -0.5, 2.0 ) * time *  0.01;
+
+				T1.x -= noise.r * 2.0;
+				T1.y += noise.g * 4.0;
+				T2.x += noise.g * 0.2;
+				T2.y += noise.b * 0.2;
+
+				float p = texture2D( texture1, T1 * 2.0 ).a + 0.25;
+
+				vec4 color = texture2D( texture2, T2 );
+				vec4 temp = color * 2.0 * ( vec4( p, p, p, p ) ) + ( color * color );
+				gl_FragColor = temp;
+			}
+
+		</script>
+
+		<script id="vertexShader" type="x-shader/x-vertex">
+
+			varying vec2 texCoord;
+
+			void main()
+			{
+				texCoord = uv;
+				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+				gl_Position = projectionMatrix * mvPosition;
+			}
+
+		</script>
+
+</head>
+<body onLoad="onLoad();" style="margin: 0px">
+<div id="container" style="width:100%; height:100%; position:absolute;"></div>
+</body>
+</html>

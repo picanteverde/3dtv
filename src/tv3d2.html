@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to WebGL</title>
+
+	<link rel="stylesheet" href="../css/webglbook.css" /> 
+	<script src="../libs/Three.js"></script>
+	<script src="../libs/RequestAnimationFrame.js"></script>
+	<script>
+	
+	var renderer = null,
+		scene = null, 
+		cameraLeft = null,
+		cameraRight = null,
+		objects = {},
+		separation = -0.04300000000000005,
+		incrementation = 0.001,
+		animating = false;
+	
+	function onLoad()
+	{
+		// Grab our containers div
+        var container = document.getElementById("container");
+
+        // Create the Three.js renderers, add them to our divs
+	    renderer = new THREE.WebGLRenderer( { antialias: true } );
+	    renderer.setClearColor(new THREE.Color().setRGB(0,0,0));
+	    renderer.setSize(container.offsetWidth, container.offsetHeight);
+	    container.appendChild( renderer.domElement );
+
+	    // Create a new Three.js scene
+	    scene = new THREE.Scene();
+
+	    // Put in two cameras
+        cameraLeft = new THREE.PerspectiveCamera( 45, (container.offsetWidth / 2) / container.offsetHeight, 1, 4000 );
+        cameraLeft.position.set( 0, 0, 3 );
+        scene.add(cameraLeft);
+
+        cameraRight = new THREE.PerspectiveCamera( 45, (container.offsetWidth / 2) / container.offsetHeight, 1, 4000 );
+        cameraRight.position.set( 0, 0, 3 );
+        scene.add(cameraRight);
+        
+        iluminateSomething();
+
+        drawSomething();
+
+        addKeyHandler();
+        // Run our render loop
+        run();
+	}
+
+	function run()
+	{
+		var width = Math.round(container.offsetWidth/2), 
+			height = container.offsetHeight;
+		// Render the scene
+		renderer.setViewport( 0, 0, width, height);
+		renderer.setScissor( 0, 0, width, height);
+		renderer.enableScissorTest ( true );
+
+		cameraLeft.aspect = width * 2 / height;
+		cameraLeft.updateProjectionMatrix();
+		cameraLeft.position.set( separation, 0, 3 );
+		
+		renderer.render( scene, cameraLeft );
+
+		renderer.setViewport( width, 0, width, height);
+		renderer.setScissor( width, 0, width, height);
+		renderer.enableScissorTest ( true );
+
+		cameraRight.aspect = width * 2 / height;
+		cameraRight.updateProjectionMatrix();
+		cameraRight.position.set( -separation, 0, 3 );
+		
+		renderer.render( scene, cameraRight );
+		animateSomething();
+			
+		// Ask for another frame
+    	requestAnimationFrame(run);	
+	}
+
+	function drawSomething(){
+		var surfaceMap = THREE.ImageUtils.loadTexture( "../images/earth_surface_2048.jpg" );
+		var normalMap = THREE.ImageUtils.loadTexture( "../images/earth_normal_2048.jpg" );
+		var specularMap = THREE.ImageUtils.loadTexture( "../images/earth_specular_2048.jpg" );
+
+		var shader = THREE.ShaderUtils.lib[ "normal" ],
+		uniforms = THREE.UniformsUtils.clone( shader.uniforms );
+
+		uniforms[ "tNormal" ].texture = normalMap;
+		uniforms[ "tDiffuse" ].texture = surfaceMap;
+		uniforms[ "tSpecular" ].texture = specularMap;
+
+		uniforms[ "enableDiffuse" ].value = true;
+		uniforms[ "enableSpecular" ].value = true;
+
+		var shaderMaterial = new THREE.ShaderMaterial({
+			fragmentShader: shader.fragmentShader,
+			vertexShader: shader.vertexShader,
+			uniforms: uniforms,
+			lights: true
+		});
+
+	    var globeGeometry = new THREE.SphereGeometry(1, 32, 32);
+
+	    // We'll need these tangents for our shader
+	    globeGeometry.computeTangents();
+	    var globeMesh = new THREE.Mesh( globeGeometry, shaderMaterial ); 
+	    
+	    // Let's work in the tilt
+	    globeMesh.rotation.x = 0.41;
+
+	    scene.add(globeMesh);
+	    objects.globeMesh = globeMesh;
+
+
+	    // Create our clouds
+		var cloudsMap = THREE.ImageUtils.loadTexture( "../images/earth_clouds_1024.png" );
+		var cloudsMaterial = new THREE.MeshLambertMaterial( { color: 0xffffff, map: cloudsMap, transparent:true } );
+
+	    var cloudsGeometry = new THREE.SphereGeometry(1.005, 32, 32);
+		cloudsMesh = new THREE.Mesh( cloudsGeometry, cloudsMaterial );
+		cloudsMesh.rotation.x = 0.41;
+
+		scene.add(cloudsMesh);
+		objects.cloudsMesh = cloudsMesh;
+
+	}
+
+	function animateSomething(){
+			
+		// "I feel the Earth move..."
+		objects.globeMesh.rotation.y += 0.001;
+
+		// "Clouds, too..."
+		objects.cloudsMesh.rotation.y += 0.002;
+	}
+
+	function iluminateSomething(){
+		var light = new THREE.PointLight( 0xffffff, 2, 100);
+		light.position.set(-10, 0, 20);
+		scene.add(light);
+	}
+
+	function addKeyHandler()
+	{
+		
+		
+		document.addEventListener( 'keyup', onKeyUp, false);
+	}
+	
+	function onKeyUp	(event)
+	{
+	    event.preventDefault();
+
+	    switch(event.keyCode){
+	    	case 38: //Up
+	    		separation += incrementation;
+	    		break;
+	    	case 40: //Down
+	    		separation -= incrementation;
+	    		break;
+	    	case 39: //Right
+	    		incrementation *= 1.1;
+	    		break;
+	    	case 37:// left
+	    		incrementation *= 0.9;
+	    		break;
+	    }
+	}	
+	
+	</script>
+
+</head>
+<body onLoad="onLoad();" style="margin: 0px">
+<div id="container" style="width:100%; height:100%; position:absolute;"></div>
+</body>
+</html>
