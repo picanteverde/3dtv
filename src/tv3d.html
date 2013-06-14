@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to WebGL</title>
+
+	<link rel="stylesheet" href="../css/webglbook.css" /> 
+	<script src="../libs/Three.js"></script>
+	<script src="../libs/RequestAnimationFrame.js"></script>
+	<script>
+	
+	var renderer = null,
+		scene = null, 
+		cameraLeft = null,
+		cameraRight = null,
+		cube = null,
+		separation = -0.04300000000000005,
+		incrementation = 0.001,
+		animating = false;
+	
+	function onLoad()
+	{
+		// Grab our containers div
+        var container = document.getElementById("container");
+
+        // Create the Three.js renderers, add them to our divs
+	    renderer = new THREE.WebGLRenderer( { antialias: true } );
+	    renderer.setSize(container.offsetWidth, container.offsetHeight);
+	    container.appendChild( renderer.domElement );
+
+	    // Create a new Three.js scene
+	    scene = new THREE.Scene();
+
+	    // Put in two cameras
+        cameraLeft = new THREE.PerspectiveCamera( 45, (container.offsetWidth / 2) / container.offsetHeight, 1, 4000 );
+        cameraLeft.position.set( 0, 0, 3 );
+        scene.add(cameraLeft);
+
+        cameraRight = new THREE.PerspectiveCamera( 45, (container.offsetWidth / 2) / container.offsetHeight, 1, 4000 );
+        cameraRight.position.set( 0, 0, 3 );
+        scene.add(cameraRight);
+        // Create a directional light to show off the object
+		var light = new THREE.DirectionalLight( 0xffffff, 1.5);
+		light.position.set(0, 0, 1);
+		scene.add( light );
+
+        // Create a shaded, texture-mapped cube and add it to the scene
+        // First, create the texture map
+        var mapUrl = "../images/molumen_small_funny_angry_monster.jpg";
+        var map = THREE.ImageUtils.loadTexture(mapUrl);
+        
+        // Now, create a Phong material to show shading; pass in the map
+        var material = new THREE.MeshPhongMaterial({ map: map });
+
+        // Create the cube geometry
+        var geometry = new THREE.CubeGeometry(1, 1, 1);
+
+        // And put the geometry and material together into a mesh
+        cube = new THREE.Mesh(geometry, material);
+
+        // Turn it toward the scene, or we won't see the cube shape!
+        cube.rotation.x = Math.PI / 5;
+        cube.rotation.y = Math.PI / 5;
+
+
+        // Add the cube to our scene
+        scene.add( cube );
+
+        addKeyHandler();
+        // Run our render loop
+        run();
+	}
+
+	function run()
+	{
+		var width = Math.round(container.offsetWidth/2), 
+			height = container.offsetHeight;
+		// Render the scene
+		renderer.setViewport( 0, 0, width, height);
+		renderer.setScissor( 0, 0, width, height);
+		renderer.enableScissorTest ( true );
+
+		cameraLeft.aspect = width * 2 / height;
+		cameraLeft.updateProjectionMatrix();
+		cameraLeft.position.set( separation, 0, 3 );
+		
+		renderer.render( scene, cameraLeft );
+
+		renderer.setViewport( width, 0, width, height);
+		renderer.setScissor( width, 0, width, height);
+		renderer.enableScissorTest ( true );
+
+		cameraRight.aspect = width * 2 / height;
+		cameraRight.updateProjectionMatrix();
+		cameraRight.position.set( -separation, 0, 3 );
+		
+		renderer.render( scene, cameraRight );
+		// Spin the cube for next frame
+		cube.rotation.y -= 0.01;
+			
+		// Ask for another frame
+    	requestAnimationFrame(run);	
+	}
+
+	function addKeyHandler()
+	{
+		
+		
+		document.addEventListener( 'keyup', onKeyUp, false);
+	}
+	
+	function onKeyUp	(event)
+	{
+	    event.preventDefault();
+
+	    switch(event.keyCode){
+	    	case 38: //Up
+	    		separation += incrementation;
+	    		break;
+	    	case 40: //Down
+	    		separation -= incrementation;
+	    		break;
+	    	case 39: //Right
+	    		incrementation *= 1.1;
+	    		break;
+	    	case 37:// left
+	    		incrementation *= 0.9;
+	    		break;
+	    }
+	}	
+	
+	</script>
+
+</head>
+<body onLoad="onLoad();" style="margin: 0px">
+<div id="container" style="width:100%; height:100%; position:absolute;"></div>
+</body>
+</html>
